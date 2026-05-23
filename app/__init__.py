@@ -7,29 +7,39 @@ from app.models.orm import db
 # 準備廣播通訊器
 socketio = SocketIO()
 
+
 def create_app():
-    # 1. 建立 Flask 主建築
+    # 1. 建立 Flask 主程式
     app = Flask(__name__)
-    
-    # 2. 把安管中心的設定套用進來
-    app.config['SECRET_KEY'] = AppConfig.SECRET_KEY
-    app.config['SQLALCHEMY_DATABASE_URI'] = AppConfig.SQLALCHEMY_DATABASE_URI
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-    # 3. 請資料庫管家開始工作
+    # 2. 套用系統設定
+    app.config["SECRET_KEY"] = AppConfig.SECRET_KEY
+    app.config["SQLALCHEMY_DATABASE_URI"] = AppConfig.SQLALCHEMY_DATABASE_URI
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+    # 3. 初始化資料庫
     db.init_app(app)
-    
-    # 4. 把廣播通訊器裝進這棟建築
-    socketio.init_app(app, cors_allowed_origins="*")  # type: ignore
 
-    # ==========================================
-    # ！！新增加的指標：把大廳接待櫃台註冊到總部！！
+    # 4. 初始化 SocketIO
+    # Render 使用 gunicorn -k eventlet 時，這裡建議明確指定 eventlet
+    socketio.init_app(
+        app,
+        cors_allowed_origins="*",
+        async_mode="eventlet"
+    )  # type: ignore
+
+    # 5. 註冊 Blueprint 路由
     from app.api.routes import main_bp
     app.register_blueprint(main_bp)
-    # ==========================================
 
-    # 5. 確保資料庫管家有把我們剛剛設計的空白表格建立出來
+    # 6. 確保所有資料表模型都有被載入
+    # 如果 Player、GameRecord 等資料表都寫在 app.models.orm 裡，這行可以保險地載入模型
+    import app.models.orm  # noqa: F401
+
+    # 7. 建立資料庫資料表
+    # Render 第一次部署時，如果沒有資料表，註冊帳號會失敗
     with app.app_context():
         db.create_all()
+        print("Database tables created successfully.")
 
     return app
