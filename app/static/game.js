@@ -118,7 +118,7 @@ function initGrid() {
     }
 
     // 如果是管理員 will，索取當前題目的正確答案
-    if (currentUser === "will" || currentUser === "meap") && currentRoom) {
+    if (currentUser === "will" && currentRoom) {
         socket.emit("get_admin_target", { room_id: currentRoom, username: currentUser });
     }
 }
